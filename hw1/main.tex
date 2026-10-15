@@ -1,0 +1,433 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{subfig}
+\usepackage{fancyhdr}
+\usepackage{url,hyperref}
+\usepackage{listings}
+\usepackage{xcolor} % for customizing code colors
+
+\DeclareUnicodeCharacter{2212}{-}
+
+% Custom color palette for modern Python highlighting
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.96,0.96,0.96}
+
+%----------------------- Listings Setup for Python --------------------------
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,             % font style and size
+    numbers=left,                           % line numbers on the left
+    numberstyle=\tiny\color{codegray},       % style of line numbers
+    stepnumber=1,                           % number every line
+    numbersep=8pt,                          % gap between numbers and code
+    frame=single,                           % add a clear frame border
+    rulecolor=\color{gray!30},              % border frame color
+    backgroundcolor=\color{backcolour},     % subtle background fill
+    keywordstyle=\color{blue}\bfseries,     % Python keywords (def, class, import, return)
+    commentstyle=\color{codegreen}\itshape, % inline/block comments (#)
+    stringstyle=\color{codepurple},         % string literals ("...", '...')
+    showstringspaces=false,                 % don't display spaces in strings as special characters
+    breaklines=true,                        % enable automatic line wrapping
+    breakatwhitespace=true,                 % wrap lines only at spaces
+    tabsize=4,                              % set standard Python indentation width
+    upquote=true                            % render single quotes correctly
+}
+\newcommand{\SecondAuther}{MohammadParsa Dini - std id: 21385609}
+\newcommand{\exerciseset}{Assignment 1}
+%%% END
+\renewcommand{\theenumi}{\bf \Alph{enumi}}
+%\theoremstyle{plain}
+%\newtheorem{theorem}{Theorem}
+%\newtheorem{lemma}[theorem]{Lemma}
+\fancypagestyle{plain}{}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[RO,LE]{\sffamily\bfseries\large HKUST}
+\fancyhead[LO,RE]{\sffamily\bfseries\large ECE 6910J: Deep-RL}
+\fancyfoot[LO,RE]{\sffamily\bfseries\large Homework 1}
+\fancyfoot[RO,LE]{\sffamily\bfseries\thepage}
+\renewcommand{\headrulewidth}{1pt}
+\renewcommand{\footrulewidth}{1pt}
+\newcommand{\circledtimes}{\mathbin{\text{\large$\bigcirc$}\kern-0.9em\times}}
+\graphicspath{{figures/}}
+%-------------------------------- Title ----------------------------------
+\title{
+    \includegraphics[width=3cm]{logo.jpg} \\ % Adjust width as needed
+    Deep-RL \par \exerciseset
+}
+\author{\SecondAuther }
+%--------------------------------- Text ----------------------------------
+\begin{document}
+\maketitle
+\section*{Problem 3}
+
+Before putting everything, I must mention that the codes are in the jupyter notebook attached among the uploaded files and if you faced any problems or enqueries please don't hesitate to contact me via \href{mailto:mdini@connect.ust.hk}{mdini@connect.ust.hk}.
+\subsection*{3.A}
+
+Problem setting: So we have actions from the discrete action set $\mathcal{A} = \{ a_1,a_2, \cdots, a_{n_A}\} $ (all integers) and states from the discrete action set $\mathcal{S} = \{ s_1,s_2, \cdots, s_{n_S}\}$ and the transition matrix $P[s][a]$ and a reward $1$ for reaching the terminal state and otherwise zero and the boolean `terminal` which states whether or not we are at the terminal state or not.
+
+
+We completed the code and now in this part explain the functions that we wrote: 
+
+\begin{enumerate}
+    \item `policy\_iteration()`:
+    In order to complete this function we need to implement these two functions first: `policy\_evaluation()` and `policy\_improvement()`.
+    \begin{enumerate}
+        \item `policy\_improvement()`: 
+        So this function takes a value function $V^k$ (at step $k$) and updates the policy in a greedy way: $\pi^{k}(s) = \arg\max_a Q^{\pi^k}(s,a)$.
+        \begin{lstlisting}[caption={implementation of  `policy\_improvement()`},label={lst:beat}]
+def policy_improvement(P, nS, nA, value_from_policy, policy, gamma=0.9):
+    new_policy = np.zeros(nS, dtype=int)
+
+    for s in range(nS):
+        q_values = np.zeros(nA)
+        for a in range(nA):
+            for p_trans, next_state, reward, terminal in P[s][a]:
+                if terminal:
+                    q_values[a] += p_trans * reward
+                else:
+                    q_values[a] += p_trans * (reward + gamma * value_from_policy[next_state])
+        new_policy[s] = np.argmax(q_values)
+
+    return new_policy
+                \end{lstlisting}
+    % -------------------------------------------------
+    \item `policy\_evaluation()`:
+    This algorithm is like a message passing algorithms, at step $k$: 
+    until convergence we get the next value function (having received a policy $\pi^k$, we apply message passing by updating Value functions until convergence): 
+    $V^{k+1}(s) = \sum_{s'\in \mathcal{S}} P(s'|s,\pi^k(s)) [R(s,\pi^k(s),s') + \gamma V^k(s) ] $
+    
+
+    \begin{lstlisting}[caption={implementation of  `policy\_evaluation()`},label={lst:beat}]
+def policy_evaluation(P, nS, nA, policy, gamma=0.9, eps=1e-3):
+    value_function = np.zeros(nS)
+
+    while True:
+        delta = 0
+        for s in range(nS):
+            v = value_function[s]
+            a = policy[s]
+            new_v = 0.0
+            for p_trans, next_state, reward, terminal in P[s][a]:
+                if terminal:
+                    new_v += p_trans * reward
+                else:
+                    new_v += p_trans * (reward + gamma * value_function[next_state])
+            value_function[s] = new_v
+            delta = max(delta, abs(v - new_v))
+        if delta < eps:
+            break
+
+    return value_function
+    \end{lstlisting}
+    \end{enumerate}
+
+    Now that we implemented both functions, we can use them to implement `policy\_iteration()`:
+
+    \begin{lstlisting}[caption={implementation of  `policy\_iteration()`},label={lst:beat}]
+def policy_iteration(P, nS, nA, gamma=0.9, eps=10e-3):
+    value_function = np.zeros(nS)
+    policy = np.zeros(nS, dtype=int)
+
+    while True:
+        value_function = policy_evaluation(P, nS, nA, policy, gamma, eps)
+        new_policy = policy_improvement(P, nS, nA, value_function, policy, gamma)
+        if np.array_equal(new_policy, policy):
+            break
+        policy = new_policy
+
+    return value_function, policy
+    \end{lstlisting}
+
+    Now we will use the above implementations in the `FrozenLake` environment:
+
+    \begin{lstlisting}[caption={Execution script for FrozenLake using Policy Iteration},label={lst:main_exec}]
+if __name__ == "__main__":
+    env = gym.make("FrozenLake-v1", render_mode="human", max_episode_steps=100)
+
+    P = env.unwrapped.P
+    nS, nA = env.unwrapped.observation_space.n, env.unwrapped.action_space.n
+
+    print("\n" + "-" * 25 + "\nBeginning Policy Iteration\n" + "-" * 25)
+    V_pi, p_pi = policy_iteration(P, nS, nA, gamma=0.9, eps=1e-3)
+    print("Optimal Value Function (Policy Iteration):\n", V_pi)
+    print("Optimal Policy (Policy Iteration):\n", p_pi)
+    render_single(env, p_pi, 100)
+    \end{lstlisting}
+
+    \subsubsection*{Execution Results (Policy Iteration)}
+    Running the script above yields the following outputs, episode reward, and spatial grid representations for the $4 \times 4$ FrozenLake layout:
+
+    \begin{verbatim}
+-------------------------
+Beginning Policy Iteration
+-------------------------
+Optimal Value Function (Policy Iteration):
+ [0.59049 0.6561  0.729   0.6561  0.6561  0.      0.81    0.      0.729
+ 0.81    0.9     0.      0.      0.9     1.      0.     ]
+Optimal Policy (Policy Iteration):
+ [1 2 1 0 1 0 1 0 2 1 1 0 0 2 2 0]
+Episode reward: 1.000000
+    \end{verbatim}
+
+    To better visualize these results, the $4 \times 4$ grid layouts for the Optimal Value Function and the Optimal Policy (where actions are mapped as $\leftarrow$: Left, $\downarrow$: Down, $\rightarrow$: Right, $\uparrow$: Up) are presented below:
+
+    \begin{table}[htbp]
+    \centering
+    \caption{Optimal Value Function $V^*(s)$ across the $4 \times 4$ Grid}
+    \begin{tabular}{|c|c|c|c|}
+    \hline
+    0.5905 & 0.6561 & 0.7290 & 0.6561 \\ \hline
+    0.6561 & 0.0000 & 0.8100 & 0.0000 \\ \hline
+    0.7290 & 0.8100 & 0.9000 & 0.0000 \\ \hline
+    0.0000 & 0.9000 & 1.0000 & 0.0000 \\ \hline
+    \end{tabular}
+    \end{table}
+
+    \begin{table}[htbp]
+    \centering
+    \caption{Optimal Policy $\pi^*(s)$ across the $4 \times 4$ Grid ($\downarrow, \rightarrow, \leftarrow, \uparrow$)}
+    \begin{tabular}{|c|c|c|c|}
+    \hline
+    $\downarrow$ (1) & $\rightarrow$ (2) & $\downarrow$ (1) & $\leftarrow$ (0) \\ \hline
+    $\downarrow$ (1) & $\leftarrow$ (0) & $\downarrow$ (1) & $\leftarrow$ (0) \\ \hline
+    $\rightarrow$ (2) & $\downarrow$ (1) & $\downarrow$ (1) & $\leftarrow$ (0) \\ \hline
+    $\leftarrow$ (0) & $\rightarrow$ (2) & $\rightarrow$ (2) & $\leftarrow$ (0) \\ \hline
+    \end{tabular}
+    \end{table}
+
+
+    
+    % ---------------------------------------------------------------------------------------------------
+\subsection*{3.B}
+
+
+     `value\_iteration()`:
+     We start from some random initial value function $V_0$ and calculate the Q-function for each action state pair using (at step $k$) $Q^k(s,a) = \sum_{s'\in \mathcal{S}} P(s'|s,a) [ R(s,a, s') + \gamma V^k(s') ] $ and then using Bellmann's equation we use the max operator over all legal actions: $V^{k+1}(s) = \max_{a \in \mathcal{A}} Q^k(s,a)$. We stop at $n$-th iteration whenever this condition is satisfied: $
+    ||V^n - V^{n-1}||_\infty \leq \epsilon$. \\ 
+    After we made sure that our value-function and Q function have converged to $V^*$ and $Q^*$, we use the greedy algorithm to lick up our policy function: $\pi^*(s) = \arg\max_{a \in \mathcal{A}} Q^*(s,a) = \sum_{s'\in \mathcal{S}} P(s'|s,a) [ R(s,a, s') + \gamma V^*(s') ]$. 
+
+    Here is the implementation of `value\_iteration()`:
+
+    \begin{lstlisting}[caption={implementation of `value\_iteration()`},label={lst:beat}]
+def value_iteration(P, nS, nA, gamma=0.9, eps=1e-3):
+    value_function = np.zeros(nS)
+    policy = np.zeros(nS, dtype=int)
+
+    while True:
+        delta = 0
+        for s in range(nS):
+            v = value_function[s]
+            q_values = np.zeros(nA)
+            for a in range(nA):
+                for p_trans, next_state, reward, terminal in P[s][a]:
+                    if terminal:
+                        q_values[a] += p_trans * reward
+                    else:
+                        q_values[a] += p_trans * (reward + gamma * value_function[next_state])
+            value_function[s] = np.max(q_values)
+            delta = max(delta, abs(v - value_function[s]))
+        if delta < eps:
+            break
+
+    # Extract greedy policy
+    for s in range(nS):
+        q_values = np.zeros(nA)
+        for a in range(nA):
+            for p_trans, next_state, reward, terminal in P[s][a]:
+                if terminal:
+                    q_values[a] += p_trans * reward
+                else:
+                    q_values[a] += p_trans * (reward + gamma * value_function[next_state])
+        policy[s] = np.argmax(q_values)
+
+    return value_function, policy
+    \end{lstlisting}
+
+
+    Now we will use the implementation above in the `FrozenLake` environment:
+
+\begin{lstlisting}[caption={Execution script for FrozenLake using Value Iteration},label={lst:main_exec_vi}]
+if __name__ == "__main__":
+    env = gym.make("FrozenLake-v1", render_mode="human", max_episode_steps=100) 
+    
+    P = env.unwrapped.P
+    nS, nA = env.unwrapped.observation_space.n, env.unwrapped.action_space.n
+
+    print("\n" + "-" * 25 + "\nBeginning Value Iteration\n" + "-" * 25)
+    V_vi, p_vi = value_iteration(P, nS, nA, gamma=0.9, eps=1e-3)
+    print("Optimal Value Function (Value Iteration):\n", V_vi)
+    print("Optimal Policy (Value Iteration):\n", p_vi)
+    render_single(env, p_vi, 100)
+\end{lstlisting}
+
+\subsubsection*{Execution Results (Value Iteration)}
+Running the script above yields the following outputs, episode reward, and spatial grid representations for the $4 \times 4$ FrozenLake layout:
+
+\begin{verbatim}
+-------------------------
+Beginning Value Iteration
+-------------------------
+Optimal Value Function (Value Iteration):
+ [0.59049 0.6561  0.729   0.6561  0.6561  0.      0.81    0.      0.729
+ 0.81    0.9     0.      0.      0.9     1.      0.     ]
+Optimal Policy (Value Iteration):
+ [1 2 1 0 1 0 1 0 2 1 1 0 0 2 2 0]
+Episode reward: 1.000000
+\end{verbatim}
+
+To better visualize these results, the $4 \times 4$ grid layouts for the Optimal Value Function and the Optimal Policy (where actions are mapped as $\leftarrow$: Left, $\downarrow$: Down, $\rightarrow$: Right, $\uparrow$: Up) are presented below:
+
+\begin{table}[htbp]
+\centering
+\caption{Optimal Value Function $V^*(s)$ via Value Iteration}
+\begin{tabular}{|c|c|c|c|}
+\hline
+0.5905 & 0.6561 & 0.7290 & 0.6561 \\ \hline
+0.6561 & 0.0000 & 0.8100 & 0.0000 \\ \hline
+0.7290 & 0.8100 & 0.9000 & 0.0000 \\ \hline
+0.0000 & 0.9000 & 1.0000 & 0.0000 \\ \hline
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Optimal Policy $\pi^*(s)$ via Value Iteration ($\downarrow, \rightarrow, \leftarrow, \uparrow$)}
+\begin{tabular}{|c|c|c|c|}
+\hline
+$\downarrow$ (1) & $\rightarrow$ (2) & $\downarrow$ (1) & $\leftarrow$ (0) \\ \hline
+$\downarrow$ (1) & $\leftarrow$ (0) & $\downarrow$ (1) & $\leftarrow$ (0) \\ \hline
+$\rightarrow$ (2) & $\downarrow$ (1) & $\downarrow$ (1) & $\leftarrow$ (0) \\ \hline
+$\leftarrow$ (0) & $\rightarrow$ (2) & $\rightarrow$ (2) & $\leftarrow$ (0) \\ \hline
+\end{tabular}
+\end{table} 
+
+
+
+As you can see in tables 1, 2, 3 and 4, all the value functions for the states and the optimal policies for both of the algorithms (Value iteration \& Policy iteration) have produced identical results, implying that the algorithms were implemented correctly.
+    % ---------------------------------------------------------
+\subsection*{3.C}
+
+\textbf{Environment Comparison and Stochasticity Analysis:} \\
+In standard deterministic FrozenLake (`FrozenLake-v1`), the environment dynamics are fully predictable; the agent moves exactly in the commanded direction. In contrast, the `SlipperyFrozenLake-v1` environment introduces stochastic dynamics where intended actions can slip to orthogonal directions with a certain probability. 
+
+\begin{enumerate}
+    \item \textbf{How stochasticity affects the resulting policy:} \\
+    Stochasticity substantially lowers the expected values of all states because the risk of falling into a hole increases significantly. Consequently, the optimal policy becomes much more conservative and risk-averse. Instead of taking direct, aggressive paths near hazards, the agent learns to steer wider around holes, preferring longer paths that minimize the probability of slipping into failure states.
+    
+    \item \textbf{Alternative Transition Function for a Different Optimal Policy:} \\
+    Yes, we can define an alternative transition function over the same state and action space—for instance, an ``adversarial ice'' model where the slip distribution is heavily biased backwards or toward adjacent holes whenever an action is taken. This alters the expected Bellman backups, forcing the agent to discover completely different routes (e.g., hugging specific boundary walls) to maximize the probability of reaching the goal safely, resulting in a distinct optimal policy $\pi^*$.
+\end{enumerate}
+
+Here is the execution script comparing both Policy Iteration and Value Iteration on the stochastic `SlipperyFrozenLake-v1` environment:
+
+\begin{lstlisting}[caption={Execution script for SlipperyFrozenLake using Policy and Value Iteration},label={lst:slippery_exec}]
+if __name__ == "__main__":
+    # Create the environment with max_episode_steps built-in
+    # env = gym.make("FrozenLake-v1", render_mode="human", max_episode_steps=100)
+    env = gym.make("SlipperyFrozenLake-v1", render_mode="human", max_episode_steps=100)
+
+    # Use env.unwrapped to access model dynamics (P) and space attributes safely
+    P = env.unwrapped.P
+    nS, nA = env.unwrapped.observation_space.n, env.unwrapped.action_space.n
+
+    print("\n" + "-" * 25 + "\nBeginning Policy Iteration\n" + "-" * 25)
+    V_pi, p_pi = policy_iteration(P, nS, nA, gamma=0.9, eps=1e-3)
+    print("Optimal Value Function (Policy Iteration):\n", V_pi)
+    print("Optimal Policy (Policy Iteration):\n", p_pi)
+    render_single(env, p_pi, 100)
+
+    print("\n" + "-" * 25 + "\nBeginning Value Iteration\n" + "-" * 25)
+    V_vi, p_vi = value_iteration(P, nS, nA, gamma=0.9, eps=1e-3)
+    print("Optimal Value Function (Value Iteration):\n", V_vi)
+    print("Optimal Policy (Value Iteration):\n", p_vi)
+    render_single(env, p_vi, 100)
+\end{lstlisting}
+
+\subsubsection*{Execution Results (Slippery Environment)}
+Running the script on `SlipperyFrozenLake-v1` produces the following console outputs and episode success confirmation:
+
+\begin{verbatim}
+-------------------------
+Beginning Policy Iteration
+-------------------------
+Optimal Value Function (Policy Iteration):
+ [0.06476289 0.05841569 0.07252933 0.05378964 0.08867795 0.         
+ 0.11137269 0.         0.14325408 0.24628655 0.29886952 0.         
+ 0.         0.37915415 0.63865133 0.        ]
+Optimal Policy (Policy Iteration):
+ [0 3 0 3 0 0 0 0 3 1 0 0 0 2 1 0]
+Episode reward: 1.000000
+
+-------------------------
+Beginning Value Iteration
+-------------------------
+Optimal Value Function (Value Iteration):
+ [0.06428821 0.05807365 0.07231299 0.05356057 0.08830336 0.         
+ 0.11127288 0.         0.14298808 0.24613328 0.29877497 0.         
+ 0.         0.37905097 0.63860174 0.        ]
+Optimal Policy (Value Iteration):
+ [0 3 0 3 0 0 0 0 3 1 0 0 0 2 1 0]
+Episode reward: 1.000000
+\end{verbatim}
+
+To visualize these stochastic results clearly, the $4 \times 4$ grids for the Optimal Value Function and Optimal Policy (where actions are mapped as $\leftarrow$: Left [0], $\downarrow$: Down [1], $\rightarrow$: Right [2], $\uparrow$: Up [3]) are detailed below:
+
+\begin{table}[htbp]
+\centering
+\caption{Optimal Value Function $V^*(s)$ for SlipperyFrozenLake}
+\begin{tabular}{|c|c|c|c|}
+\hline
+0.0643 & 0.0581 & 0.0723 & 0.0536 \\ \hline
+0.0883 & 0.0000 & 0.1113 & 0.0000 \\ \hline
+0.1430 & 0.2461 & 0.2988 & 0.0000 \\ \hline
+0.0000 & 0.3791 & 0.6386 & 0.0000 \\ \hline
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Optimal Policy $\pi^*(s)$ for SlipperyFrozenLake ($\leftarrow, \downarrow, \rightarrow, \uparrow$)}
+\begin{tabular}{|c|c|c|c|}
+\hline
+$\leftarrow$ (0) & $\uparrow$ (3) & $\leftarrow$ (0) & $\uparrow$ (3) \\ \hline
+$\leftarrow$ (0) & $\leftarrow$ (0) & $\leftarrow$ (0) & $\leftarrow$ (0) \\ \hline
+$\uparrow$ (3) & $\downarrow$ (1) & $\leftarrow$ (0) & $\leftarrow$ (0) \\ \hline
+$\leftarrow$ (0) & $\rightarrow$ (2) & $\downarrow$ (1) & $\leftarrow$ (0) \\ \hline
+\end{tabular}
+\end{table}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+\end{enumerate}
+
+
+
+
+
+
+
+
+
+
+
+
+
+\end{document}
